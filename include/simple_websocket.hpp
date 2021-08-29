@@ -7,8 +7,19 @@
 #include <memory>
 
 namespace SimpleWebSocket {
+  template<class... As> struct match : As... { using As::operator()...; };
+  template<class... As> match(As...) -> match<As...>;
+
   struct PingFrame final {
     explicit PingFrame(std::string value) : value_(std::move(value)) {}
+
+    bool operator==(const PingFrame &rhs) const {
+      return value_ == rhs.value_;
+    }
+
+    bool operator!=(const PingFrame &rhs) const {
+      return !(rhs == *this);
+    }
 
     [[nodiscard]]
     const std::string &value() const {
@@ -22,6 +33,14 @@ namespace SimpleWebSocket {
   struct PongFrame final {
     explicit PongFrame(std::string value) : value_(std::move(value)) {}
 
+    bool operator==(const PongFrame &rhs) const {
+      return value_ == rhs.value_;
+    }
+
+    bool operator!=(const PongFrame &rhs) const {
+      return !(rhs == *this);
+    }
+
     [[nodiscard]]
     const std::string &value() const {
       return value_;
@@ -33,6 +52,14 @@ namespace SimpleWebSocket {
 
   struct TextFrame final {
     explicit TextFrame(std::string value) : value_(std::move(value)) {}
+
+    bool operator==(const TextFrame &rhs) const {
+      return value_ == rhs.value_;
+    }
+
+    bool operator!=(const TextFrame &rhs) const {
+      return !(rhs == *this);
+    }
 
     [[nodiscard]]
     const std::string &value() const {
@@ -46,6 +73,14 @@ namespace SimpleWebSocket {
   struct BinaryFrame final {
     explicit BinaryFrame(std::vector<char> value) : value_(std::move(value)) {}
 
+    bool operator==(const BinaryFrame &rhs) const {
+      return value_ == rhs.value_;
+    }
+
+    bool operator!=(const BinaryFrame &rhs) const {
+      return !(rhs == *this);
+    }
+
     [[nodiscard]]
     const std::vector<char> &value() const {
       return value_;
@@ -58,6 +93,14 @@ namespace SimpleWebSocket {
   struct CloseFrame final {
     explicit CloseFrame(std::string value) : value_(std::move(value)) {}
 
+    bool operator==(const CloseFrame &rhs) const {
+      return value_ == rhs.value_;
+    }
+
+    bool operator!=(const CloseFrame &rhs) const {
+      return !(rhs == *this);
+    }
+
     [[nodiscard]]
     const std::string &value() const {
       return value_;
@@ -67,7 +110,15 @@ namespace SimpleWebSocket {
     std::string value_;
   };
 
-  struct UndefinedFrame final { };
+  struct UndefinedFrame final {
+    bool operator==(const UndefinedFrame &rhs) const {
+      return true;
+    }
+
+    bool operator!=(const UndefinedFrame &rhs) const {
+      return false;
+    }
+  };
 
   struct FrameHandler {
     virtual void handlePing(const PingFrame& pingFrame) = 0;
@@ -83,6 +134,38 @@ namespace SimpleWebSocket {
       : value_(std::move(value))
     { }
 
+    bool operator==(const Message &rhs) const {
+      if (std::holds_alternative<PingFrame>(value_) && std::holds_alternative<PingFrame>(rhs.value())) {
+        return std::get<PingFrame>(value_) == std::get<PingFrame>(rhs.value());
+      }
+
+      if (std::holds_alternative<PongFrame>(value_) && std::holds_alternative<PongFrame>(rhs.value())) {
+        return std::get<PongFrame>(value_) == std::get<PongFrame>(rhs.value());
+      }
+
+      if (std::holds_alternative<TextFrame>(value_) && std::holds_alternative<TextFrame>(rhs.value())) {
+        return std::get<TextFrame>(value_) == std::get<TextFrame>(rhs.value());
+      }
+
+      if (std::holds_alternative<BinaryFrame>(value_) && std::holds_alternative<BinaryFrame>(rhs.value())) {
+        return std::get<BinaryFrame>(value_) == std::get<BinaryFrame>(rhs.value());
+      }
+
+      if (std::holds_alternative<CloseFrame>(value_) && std::holds_alternative<CloseFrame>(rhs.value())) {
+        return std::get<CloseFrame>(value_) == std::get<CloseFrame>(rhs.value());
+      }
+
+      if (std::holds_alternative<UndefinedFrame>(value_) && std::holds_alternative<UndefinedFrame>(rhs.value())) {
+        return std::get<UndefinedFrame>(value_) == std::get<UndefinedFrame>(rhs.value());
+      }
+
+      return false;
+    }
+
+    bool operator!=(const Message &rhs) const {
+      return !(rhs == *this);
+    }
+
     [[nodiscard]]
     const std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> &value() const {
       return value_;
@@ -92,8 +175,6 @@ namespace SimpleWebSocket {
     std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> value_;
   };
 
-  template<class... As> struct match : As... { using As::operator()...; };
-  template<class... As> match(As...) -> match<As...>;
   struct MessageHandler final {
     explicit MessageHandler(std::unique_ptr<FrameHandler> delegate) : delegate_(std::move(delegate)) {}
 
@@ -112,3 +193,38 @@ namespace SimpleWebSocket {
     std::unique_ptr<FrameHandler> delegate_;
   };
 }
+
+#if __has_include(<Poco/Net/WebSocket.h>)
+#include <Poco/Net/WebSocket.h>
+namespace SimpleWebSocket {
+  namespace Poco {
+    constexpr int PING_FRAME   = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
+                                 static_cast<int>(::Poco::Net::WebSocket::FRAME_OP_PING);
+    constexpr int PONG_FRAME   = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
+                                 static_cast<int>(::Poco::Net::WebSocket::FRAME_OP_PONG);
+    constexpr int TEXT_FRAME   = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
+                                 static_cast<int>(::Poco::Net::WebSocket::FRAME_OP_TEXT);
+    constexpr int BINARY_FRAME = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
+                                 static_cast<int>(::Poco::Net::WebSocket::FRAME_OP_BINARY);
+    constexpr int CLOSE_FRAME  = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
+                                 static_cast<int>(::Poco::Net::WebSocket::FRAME_OP_CLOSE);
+
+    inline SimpleWebSocket::Message fromPoco(int flags, const char *buf, int size) {
+      switch(flags) {
+        case PING_FRAME:
+          return SimpleWebSocket::Message{SimpleWebSocket::PingFrame{std::string(buf, size)}};
+        case PONG_FRAME:
+          return SimpleWebSocket::Message{SimpleWebSocket::PongFrame{std::string(buf, size)}};
+        case TEXT_FRAME:
+          return SimpleWebSocket::Message{SimpleWebSocket::TextFrame{std::string(buf, size)}};
+        case BINARY_FRAME:
+          return SimpleWebSocket::Message{SimpleWebSocket::BinaryFrame{std::vector<char>(buf, buf + size)}};
+        case CLOSE_FRAME:
+          return SimpleWebSocket::Message{SimpleWebSocket::CloseFrame{std::string(buf, size)}};
+        default:
+          return SimpleWebSocket::Message{SimpleWebSocket::UndefinedFrame{}};
+      }
+    }
+  }
+}
+#endif

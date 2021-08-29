@@ -121,3 +121,68 @@ TEST_CASE("Mixed Frames")
   CHECK(messages.at(2) == "close");
 }
 
+TEST_CASE("Poco PING_FRAME")
+{
+  int flags = 137;
+  char buf[5] = "ping";
+  int size = 4;
+
+  SimpleWebSocket::Message actual = SimpleWebSocket::Poco::fromPoco(flags, buf, size);
+  SimpleWebSocket::Message expected = SimpleWebSocket::Message{SimpleWebSocket::PingFrame{"ping"}};
+  CHECK(expected == actual);
+}
+
+TEST_CASE("Poco PONG_FRAME")
+{
+  int flags = 138;
+  char buf[5] = "pong";
+  int size = 4;
+
+  SimpleWebSocket::Message actual = SimpleWebSocket::Poco::fromPoco(flags, buf, size);
+  SimpleWebSocket::Message expected = SimpleWebSocket::Message{SimpleWebSocket::PongFrame{"pong"}};
+  CHECK(expected == actual);
+}
+
+TEST_CASE("Poco TEXT_FRAME")
+{
+  int flags = 129;
+  char buf[5] = "text";
+  int size = 4;
+
+  SimpleWebSocket::Message actual = SimpleWebSocket::Poco::fromPoco(flags, buf, size);
+  SimpleWebSocket::Message expected = SimpleWebSocket::Message{SimpleWebSocket::TextFrame{"text"}};
+  CHECK(expected == actual);
+}
+
+TEST_CASE("Poco BINARY_FRAME")
+{
+  int flags = 130;
+  char buf[7] = "binary";
+  int size = 6;
+
+  SimpleWebSocket::Message actual = SimpleWebSocket::Poco::fromPoco(flags, buf, size);
+  SimpleWebSocket::Message expected = SimpleWebSocket::Message{SimpleWebSocket::BinaryFrame{{'b', 'i', 'n', 'a', 'r', 'y'}}};
+  CHECK(expected == actual);
+}
+
+TEST_CASE("Poco CLOSE_FRAME")
+{
+  int flags = 136;
+  char buf[6] = "close";
+  int size = 5;
+
+  SimpleWebSocket::Message actual = SimpleWebSocket::Poco::fromPoco(flags, buf, size);
+  SimpleWebSocket::Message expected = SimpleWebSocket::Message{SimpleWebSocket::CloseFrame{"close"}};
+  CHECK(expected == actual);
+}
+
+TEST_CASE("Poco Undefined")
+{
+  int flags = 0;
+  char buf[1] = "";
+  int size = 1;
+
+  SimpleWebSocket::Message actual = SimpleWebSocket::Poco::fromPoco(flags, buf, size);
+  SimpleWebSocket::Message expected = SimpleWebSocket::Message{SimpleWebSocket::UndefinedFrame{}};
+  CHECK(expected == actual);
+}
