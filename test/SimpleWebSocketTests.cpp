@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <utility>
-#include "simple_websocket.hpp"
+#include "../simple_websocket.hpp"
 
 struct TestFrameHandler final : SimpleWebSocket::FrameHandler {
   explicit TestFrameHandler(std::vector<std::string>& messages) : messages_(messages) {}
