@@ -4,10 +4,16 @@
 #include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPResponse.h>
 #include <simple_websocket.hpp>
+#include <csignal>
 
 constexpr int FRAME_SIZE = 1024;
 
 bool continueRunning = true;
+
+void handleSignal(int _) {
+  std::cout << "Received shutdown signal, terminating" << std::endl;
+  continueRunning = false;
+}
 
 struct TestFrameParser final : SimpleWebSocket::FrameParser<std::string> {
   std::string handlePing(const SimpleWebSocket::PingFrame &pingFrame) override {
@@ -36,6 +42,10 @@ struct TestFrameParser final : SimpleWebSocket::FrameParser<std::string> {
 };
 
 int main() {
+  signal(SIGHUP, handleSignal);
+  signal(SIGINT, handleSignal);
+  signal(SIGTERM, handleSignal);
+
   Poco::Net::HTTPClientSession session{"localhost", 8080};
   Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET, "/", Poco::Net::HTTPMessage::HTTP_1_1};
   Poco::Net::HTTPResponse response;
