@@ -4,6 +4,8 @@ A small header only C++ library that provides the foundation of an algebraic dat
 
 ## Usage
 
+The following examples attempt to demonstrate the two shapes offered by this library. For a complete working example using the Poco framework, take a look at the [example](https://github.com/abedra/simple_websocket/tree/master/example).
+
 ### Frame Parser
 
 If you want to keep the parsing of frames pure, you can use the `SimpleWebSocket::FrameParser` template class. This template allows you to specify a unifying type for all frames, and expects you to provide the arrows from each of the message variant members to your chosen type. A contrived, yet simple example:
