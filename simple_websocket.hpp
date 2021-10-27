@@ -129,6 +129,16 @@ namespace SimpleWebSocket {
     virtual void handleUndefined(const UndefinedFrame& undefinedFrame) = 0;
   };
 
+  template<class A>
+  struct FrameParser {
+    virtual A handlePing(const PingFrame& pingFrame) = 0;
+    virtual A handlePong(const PongFrame& pongFrame) = 0;
+    virtual A handleText(const TextFrame& textFrame) = 0;
+    virtual A handleBinary(const BinaryFrame& binaryFrame) = 0;
+    virtual A handleClose(const CloseFrame& closeFrame) = 0;
+    virtual A handleUndefined(const UndefinedFrame& undefinedFrame) = 0;
+  };
+
   struct Message final {
     explicit Message(std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> value)
       : value_(std::move(value))
@@ -192,12 +202,30 @@ namespace SimpleWebSocket {
   private:
     std::unique_ptr<FrameHandler> delegate_;
   };
+
+  template<class A>
+  struct MessageParser final {
+    explicit MessageParser(std::unique_ptr<FrameParser<A>> delegate) : delegate_(std::move(delegate)) {}
+
+    A parse(const Message& message) {
+      return std::visit(match{
+          [this](const PingFrame& pingFrame) { return delegate_->handlePing(pingFrame); },
+          [this](const PongFrame& pongFrame) { return delegate_->handlePong(pongFrame); },
+          [this](const TextFrame& textFrame) { return delegate_->handleText(textFrame); },
+          [this](const BinaryFrame& binaryFrame) { return delegate_->handleBinary(binaryFrame); },
+          [this](const CloseFrame& closeFrame) { return delegate_->handleClose(closeFrame); },
+          [this](const UndefinedFrame& undefinedFrame) { return delegate_->handleUndefined(undefinedFrame); },
+      }, message.value());
+    }
+
+  private:
+    std::unique_ptr<FrameParser<A>> delegate_;
+  };
 }
 
 #if __has_include(<Poco/Net/WebSocket.h>)
 #include <Poco/Net/WebSocket.h>
-namespace SimpleWebSocket {
-  namespace Poco {
+namespace SimpleWebSocket::Poco {
     constexpr int PING_FRAME   = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
                                  static_cast<int>(::Poco::Net::WebSocket::FRAME_OP_PING);
     constexpr int PONG_FRAME   = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
@@ -226,5 +254,4 @@ namespace SimpleWebSocket {
       }
     }
   }
-}
 #endif
