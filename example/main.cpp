@@ -7,10 +7,8 @@
 #include <Poco/Net/HTTPResponse.h>
 
 #include <simple_websocket.hpp>
-#include <csignal>
 #include <utility>
 #include <variant>
-#include <sysexits.h>
 
 template<class... As> struct match : As... { using As::operator()...; };
 template<class... As> match(As...) -> match<As...>;
@@ -73,7 +71,6 @@ struct ExampleWebSocket final {
   static std::variant<std::string, std::monostate> start(Poco::Net::WebSocket &webSocket) {
     int flags;
     char buf[FRAME_SIZE];
-    Poco::Net::WebSocket webSocket{session, request, response};
     TestFrameParser testFrameParser;
     SimpleWebSocket::MessageParser<std::string> parser{std::make_unique<TestFrameParser>(testFrameParser)};
 
@@ -99,9 +96,9 @@ private:
 };
 
 int main() {
-  signal(SIGHUP, shudDown);
-  signal(SIGINT, shudDown);
-  signal(SIGTERM, shudDown);
+  signal(SIGHUP, shutDown);
+  signal(SIGINT, shutDown);
+  signal(SIGTERM, shutDown);
 
   std::variant<std::string, std::monostate> sentinel = "";
   do {
