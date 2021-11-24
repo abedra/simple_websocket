@@ -7,6 +7,13 @@
 #include <Poco/Net/HTTPResponse.h>
 
 #include <simple_websocket.hpp>
+#include <csignal>
+#include <utility>
+#include <variant>
+#include <sysexits.h>
+
+template<class... As> struct match : As... { using As::operator()...; };
+template<class... As> match(As...) -> match<As...>;
 
 constexpr int FRAME_SIZE = 1024;
 bool continueRunning = true;
@@ -34,7 +41,7 @@ struct TestFrameParser final : SimpleWebSocket::FrameParser<std::string> {
   }
 
   std::string handleUndefined(const SimpleWebSocket::UndefinedFrame &undefinedFrame) override {
-    return "ERROR: received undefined frame op code";
+    throw std::runtime_error("ERROR: received undefined frame op code");
   }
 
   std::string handleText(const SimpleWebSocket::TextFrame &textFrame) override {
@@ -42,33 +49,81 @@ struct TestFrameParser final : SimpleWebSocket::FrameParser<std::string> {
   }
 };
 
-int main() {
-  signal(SIGHUP, shutDown);
-  signal(SIGINT, shutDown);
-  signal(SIGTERM, shutDown);
+struct ExampleWebSocket final {
+  explicit ExampleWebSocket(std::string host,
+                            Poco::UInt16 port,
+                            std::string uri)
+    : host_(std::move(host))
+    , port_(port)
+    , uri_(std::move(uri))
+  { }
 
-  Poco::Net::HTTPClientSession session{"localhost", 8080};
-  Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET, "/", Poco::Net::HTTPMessage::HTTP_1_1};
-  Poco::Net::HTTPResponse response;
+  std::variant<std::string, Poco::Net::WebSocket> buildWebSocket() {
+    Poco::Net::HTTPClientSession session{host_, port_};
+    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET, uri_, Poco::Net::HTTPMessage::HTTP_1_1};
+    Poco::Net::HTTPResponse response;
 
-  try {
+    try {
+      return Poco::Net::WebSocket{session, request, response};
+    } catch (const std::exception &e) {
+      return e.what();
+    }
+  }
+
+  static std::variant<std::string, std::monostate> start(Poco::Net::WebSocket &webSocket) {
     int flags;
     char buf[FRAME_SIZE];
     Poco::Net::WebSocket webSocket{session, request, response};
     TestFrameParser testFrameParser;
     SimpleWebSocket::MessageParser<std::string> parser{std::make_unique<TestFrameParser>(testFrameParser)};
 
-    do {
-      int received = webSocket.receiveFrame(buf, FRAME_SIZE, flags);
-      SimpleWebSocket::Message message = SimpleWebSocket::Poco::fromPoco(flags, buf, received);
-      std::string parsed = parser.parse(message);
-      std::cout << parsed << std::endl;
-      memset(buf, '\0', FRAME_SIZE);
-    } while (continueRunning);
-  } catch (const std::exception &e) {
-    std::cout << "ERROR: " << e.what() << std::endl;
-    return EX_SOFTWARE;
+    try {
+      do {
+        int received = webSocket.receiveFrame(buf, FRAME_SIZE, flags);
+        SimpleWebSocket::Message message = SimpleWebSocket::Poco::fromPoco(flags, buf, received);
+        std::string parsed = parser.parse(message);
+        std::cout << parsed << std::endl;
+        memset(buf, '\0', FRAME_SIZE);
+      } while (continueRunning);
+    } catch (const std::exception &e) {
+      return e.what();
+    }
+
+    return std::monostate();
   }
+
+private:
+  std::string host_;
+  Poco::UInt16 port_;
+  std::string uri_;
+};
+
+int main() {
+  signal(SIGHUP, shudDown);
+  signal(SIGINT, shudDown);
+  signal(SIGTERM, shudDown);
+
+  std::variant<std::string, std::monostate> sentinel = "";
+  do {
+    ExampleWebSocket exampleWebSocket{"localhost", 8080, "/"};
+    std::variant<std::string, Poco::Net::WebSocket> maybeWebSocket = exampleWebSocket.buildWebSocket();
+
+    std::visit(match{
+        [](const std::string &error) {
+          std::cout << error << std::endl;
+          sleep(1);
+        },
+        [&sentinel](Poco::Net::WebSocket &webSocket) {
+          std::variant<std::string, std::monostate> result = ExampleWebSocket::start(webSocket);
+          if (holds_alternative<std::string>(result)) {
+            std::cout << get<std::string>(result) << std::endl;
+            sleep(1);
+          }
+
+          sentinel = result;
+        }
+    }, maybeWebSocket);
+  } while (holds_alternative<std::string>(sentinel));
 
   return EX_OK;
 }
