@@ -100,27 +100,27 @@ int main() {
   signal(SIGINT, shutDown);
   signal(SIGTERM, shutDown);
 
-  std::variant<std::string, std::monostate> sentinel = "";
+  std::variant<std::string, std::monostate> workflowResult = "";
+
   do {
     ExampleWebSocket exampleWebSocket{"localhost", 8080, "/"};
     std::variant<std::string, Poco::Net::WebSocket> maybeWebSocket = exampleWebSocket.buildWebSocket();
-
-    std::visit(match{
+    auto executionResult = std::visit(match{
         [](const std::string &error) {
-          std::cout << error << std::endl;
-          sleep(1);
+          return std::variant<std::string, std::monostate>(error);
         },
-        [&sentinel](Poco::Net::WebSocket &webSocket) {
-          std::variant<std::string, std::monostate> result = ExampleWebSocket::start(webSocket);
-          if (holds_alternative<std::string>(result)) {
-            std::cout << get<std::string>(result) << std::endl;
-            sleep(1);
-          }
-
-          sentinel = result;
+        [](Poco::Net::WebSocket &webSocket) {
+          return ExampleWebSocket::start(webSocket);
         }
     }, maybeWebSocket);
-  } while (holds_alternative<std::string>(sentinel));
+
+    if (holds_alternative<std::string>(executionResult)) {
+      std::cout << get<std::string>(executionResult) << std::endl;
+      sleep(1);
+    }
+
+    workflowResult = executionResult;
+  } while (holds_alternative<std::string>(workflowResult));
 
   return EX_OK;
 }
