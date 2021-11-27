@@ -7,5 +7,6 @@ include(FetchContent)
 include(cmake/poco.cmake)
 include(cmake/simple_websocket.cmake)
 
-add_executable(example main.cpp)
+include_directories(${PROJECT_SOURCE_DIR}/src)
+add_executable(example bin/main.cpp)
 target_link_libraries(example Poco::NetSSL simple_websocket)
