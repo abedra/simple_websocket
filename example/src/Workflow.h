@@ -5,56 +5,31 @@
 #include "ExampleWebSocket.h"
 #include "ExampleFrameParser.h"
 
-template<class L, class R, class A>
+template<class Failure, class Success, class ExecutionContext>
 struct Workflow final {
-  explicit Workflow(const bool &continueRunning) : continueRunning_(continueRunning) {}
+  explicit Workflow(ExecutionContext &executionContext,
+                    const std::function<Either<Failure, Success>(ExecutionContext &)> &runFn,
+                    const std::function<void(const Success &)> &successFn,
+                    const std::function<void(const Failure &)> &recoveryFn)
+    : executionContext_(executionContext)
+    , runFn_(runFn)
+    , successFn_(successFn)
+    , recoveryFn_(recoveryFn)
+  { }
 
-  [[nodiscard]]
-  Either<std::string, std::monostate> start(Poco::Net::WebSocket &pocoWebSocket, int frameSize) const {
-    ExampleFrameParser frameParser;
-    SimpleWebSocket::MessageParser<std::string> parser{std::make_unique<ExampleFrameParser>(frameParser)};
-    PocoWrapper webSocket{pocoWebSocket, frameSize};
-    int flags;
+  void runUntilCancelled() {
+    Either<Failure, Success> workflowResult = runFn_(executionContext_);
+    workflowResult.template match<void>(recoveryFn_, successFn_);
 
-    try {
-      while (continueRunning_) {
-        std::span<char> result = webSocket.receive(flags);
-        SimpleWebSocket::Message message = SimpleWebSocket::Poco::fromPoco(flags, result.data(), static_cast<int>(result.size()));
-        std::string parsed = parser.parse(message);
-        std::cout << parsed << std::endl;
-      }
-    } catch (const std::exception &e) {
-      return Either<std::string, std::monostate>::left(e.what());
-    }
-
-    return Either<std::string, std::monostate>::right(std::monostate());
-  }
-
-  Either<L, R> runOnce(ExampleWebSocket &exampleWebSocket) {
-    std::variant<std::string, Poco::Net::WebSocket> maybeWebSocket = exampleWebSocket.buildWebSocket();
-
-    return std::visit(visitor{
-        [](const std::string &error) {
-          return Either<std::string, std::monostate>::left(error);
-        },
-        [this, &exampleWebSocket](Poco::Net::WebSocket &webSocket) {
-          return start(webSocket, exampleWebSocket.frameSize());
-        }
-    }, maybeWebSocket);
-  }
-
-  void runUntil(const std::function<bool(const Either<L, R>& result)> &cancelPredicate,
-                const std::function<void(const L &l)> &recoveryFn,
-                A &executionContext) {
-    Either<L, R> workflowResult = Workflow::runOnce(executionContext);
-    workflowResult.template match<void>(recoveryFn, [](const R &r){});
-
-    while (!cancelPredicate(workflowResult)) {
-      workflowResult = Workflow::runOnce(executionContext);
-      workflowResult.template match<void>(recoveryFn, [](const R &r){});
+    while (!workflowResult.isRight()) {
+      workflowResult = runFn_(executionContext_);
+      workflowResult.template match<void>(recoveryFn_, successFn_);
     }
   }
 
 private:
-  const bool& continueRunning_;
+  ExecutionContext &executionContext_;
+  const std::function<Either<Failure, Success>(ExecutionContext &)> runFn_;
+  const std::function<void(const Success &)> successFn_;
+  const std::function<void(const Failure &)> recoveryFn_;
 };

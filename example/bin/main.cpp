@@ -4,7 +4,7 @@
 
 #include <simple_websocket.hpp>
 
-#include "Workflow.h"
+#include "WebSocketWorkflow.h"
 
 constexpr int FRAME_SIZE = 1024;
 bool continueRunning = true;
@@ -19,17 +19,9 @@ int main() {
   signal(SIGINT, shutDown);
   signal(SIGTERM, shutDown);
 
-  Workflow<std::string, std::monostate, ExampleWebSocket> workflow{continueRunning};
-  ExampleWebSocket webSocket{"localhost", 8080, "/", FRAME_SIZE};
-
-  workflow.runUntil(
-      [](const Either<std::string, std::monostate> &result) { return result.isRight(); },
-      [](const std::string &failure) {
-        std::cout << failure << std::endl;
-        sleep(1);
-      },
-      webSocket
-  );
+  ExampleWebSocket executionContext{"localhost", 8080, "/", FRAME_SIZE};
+  WebSocketWorkflow workflow{executionContext, continueRunning};
+  workflow.runUntilCancelled();
 
   return EX_OK;
 }
