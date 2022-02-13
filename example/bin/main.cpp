@@ -1,9 +1,8 @@
 #include <iostream>
 #include <csignal>
 #include <sysexits.h>
-#include <variant>
 
-#include "Workflow.h"
+#include "Types.h"
 #include "WebSocketClient.h"
 
 std::atomic<bool> continueRunning = true;
@@ -17,22 +16,20 @@ int main() {
   signal(SIGHUP, shutDown);
   signal(SIGINT, shutDown);
   signal(SIGTERM, shutDown);
+  signal(SIGKILL, shutDown);
+  signal(SIGQUIT, shutDown);
 
   constexpr int FRAME_SIZE = 1024;
-  ExecutionContext executionContext{"localhost", 8080, "/"};
 
-  WebSocketClient<FRAME_SIZE, WorkflowResult<std::string>> webSocketClient{
-    executionContext,
-    continueRunning,
-    [](const std::variant<std::string, std::monostate>& result) {
-      return WorkflowResult{result};
-    }
+  WebSocketClient<FRAME_SIZE, WorkflowResult> webSocketClient{
+    ExecutionContext{"localhost", 8080, "/"},
+    [](const auto& result) { return WorkflowResult{result}; }
   };
 
-  Workflow<std::string> workflow{
-    [&webSocketClient](){ return webSocketClient.start(); },
-    [](const std::monostate &_){ },
-    [](const std::string &failure) {
+  Workflow workflow{
+    [&, client = std::move(webSocketClient)]() { return client.start(continueRunning); },
+    [](const auto&) { },
+    [](const Failure &failure) {
       std::cout << failure << std::endl;
       sleep(1);
     }
