@@ -1,11 +1,18 @@
 const ws = require('ws');
 
 const wss = new ws.WebSocketServer({ port: 8080 });
-let count = 0;
+
+const start = ws => {
+  console.log("Counting down")
+
+  for (i = 0; i < 10; i++) {
+    ws.send(i)
+  }
+
+  console.log("Countdown complete, closing connection")
+  ws.close()
+}
 
 wss.on('connection', function connection(ws) {
-  setInterval(() => {
-    ws.send(count)
-    count += 1
-  }, 1000);
+  start(ws)
 });
