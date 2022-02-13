@@ -1,6 +1,8 @@
 #include <iostream>
 #include <csignal>
 #include <sysexits.h>
+#include <chrono>
+#include <thread>
 
 #include "Types.h"
 #include "WebSocketClient.h"
@@ -13,6 +15,8 @@ void shutDown([[maybe_unused]] int _) {
 }
 
 int main() {
+  using namespace std::chrono_literals;
+
   signal(SIGHUP, shutDown);
   signal(SIGINT, shutDown);
   signal(SIGTERM, shutDown);
@@ -28,10 +32,12 @@ int main() {
 
   Workflow workflow{
     [&, client = std::move(webSocketClient)]() { return client.start(continueRunning); },
-    [](const auto&) { },
+    [](const auto&) {
+      std::cout << "Workflow completed successfully" << std::endl;
+    },
     [](const Failure &failure) {
       std::cout << failure << std::endl;
-      sleep(1);
+      std::this_thread::sleep_for(1s);
     }
   };
 
