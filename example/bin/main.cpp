@@ -31,7 +31,9 @@ int main() {
   };
 
   Workflow workflow{
-    [&, client = std::move(webSocketClient)]() { return client.start(continueRunning); },
+    [&, client = std::move(webSocketClient)]() {
+      return client.start(continueRunning);
+    },
     [](const auto&) {
       std::cout << "Workflow completed successfully" << std::endl;
     },

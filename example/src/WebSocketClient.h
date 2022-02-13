@@ -2,7 +2,6 @@
 
 #include "Types.h"
 #include "ExampleFrameParser.h"
-#include "PocoWrapper.h"
 
 template<int FRAME_SIZE, class A>
 struct WebSocketClient final {
@@ -21,7 +20,7 @@ struct WebSocketClient final {
     int flags;
 
     try {
-      PocoWrapper<FRAME_SIZE> delegate = pocoWrapper<FRAME_SIZE>(
+      SimpleWebSocket::Poco::Wrapper<FRAME_SIZE> delegate = SimpleWebSocket::Poco::wrapper<FRAME_SIZE>(
           executionContext_.host(),
           executionContext_.port(),
           executionContext_.uri()
