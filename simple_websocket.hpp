@@ -268,11 +268,18 @@ namespace SimpleWebSocket::Poco {
         webSocket_.close();
       }
 
-      [[nodiscard]]
-      std::span<char> receive(int &flags) {
+      [[nodiscard]] std::span<char> receive(int &flags) {
         char buffer[SIZE];
         int bytesReceived = webSocket_.receiveFrame(buffer, SIZE, flags);
         return {buffer, static_cast<size_t>(bytesReceived)};
+      }
+      
+      int send(const std::string &message, int opCode) {
+        return webSocket_.sendFrame(message.c_str(), static_cast<int>(message.length()), opCode);
+      }
+      
+      int send(std::span<char> buffer, int opCode) {
+        return webSocket_.sendBytes(buffer.data(), static_cast<int>(buffer.size()), opCode);
       }
 
     private:
