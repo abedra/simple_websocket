@@ -188,6 +188,8 @@ namespace SimpleWebSocket {
   struct MessageHandler final {
     explicit MessageHandler(std::unique_ptr<FrameHandler> delegate) : delegate_(std::move(delegate)) {}
 
+    virtual ~MessageHandler() = default;
+
     void handle(const Message& message) {
       std::visit(match{
         [this](const PingFrame& pingFrame) { delegate_->handlePing(pingFrame); },
@@ -206,6 +208,8 @@ namespace SimpleWebSocket {
   template<class A>
   struct MessageParser final {
     explicit MessageParser(std::unique_ptr<FrameParser<A>> delegate) : delegate_(std::move(delegate)) {}
+
+    virtual ~MessageParser() = default;
 
     A parse(const Message& message) {
       return std::visit(match{
