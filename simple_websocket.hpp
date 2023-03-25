@@ -121,6 +121,7 @@ namespace SimpleWebSocket {
   };
 
   struct FrameHandler {
+    virtual ~FrameHandler() = default;
     virtual void handlePing(const PingFrame& pingFrame) = 0;
     virtual void handlePong(const PongFrame& pongFrame) = 0;
     virtual void handleText(const TextFrame& textFrame) = 0;
@@ -131,6 +132,7 @@ namespace SimpleWebSocket {
 
   template<class A>
   struct FrameParser {
+    virtual ~FrameParser() = default;
     virtual A handlePing(const PingFrame& pingFrame) = 0;
     virtual A handlePong(const PongFrame& pongFrame) = 0;
     virtual A handleText(const TextFrame& textFrame) = 0;
@@ -300,5 +302,5 @@ namespace SimpleWebSocket::Poco {
 
       return Wrapper<SIZE>{::Poco::Net::WebSocket{session, request, response}};
     }
-  }
+}
 #endif
