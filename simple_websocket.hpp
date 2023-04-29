@@ -233,9 +233,11 @@ namespace SimpleWebSocket {
 #include <span>
 #include <Poco/Net/WebSocket.h>
 #include <Poco/Net/HTTPClientSession.h>
+#include <Poco/Net/HTTPSClientSession.h>
 #include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPResponse.h>
 #include <Poco/Net/WebSocket.h>
+#include <Poco/Net/SSLManager.h>
 
 namespace SimpleWebSocket::Poco {
     constexpr int PING_FRAME   = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
@@ -297,6 +299,18 @@ namespace SimpleWebSocket::Poco {
                                  ::Poco::UInt16 port,
                                  const std::string& uri) {
       ::Poco::Net::HTTPClientSession session{host, port};
+      ::Poco::Net::HTTPRequest request{::Poco::Net::HTTPRequest::HTTP_GET, uri, ::Poco::Net::HTTPMessage::HTTP_1_1};
+      ::Poco::Net::HTTPResponse response;
+
+      return Wrapper<SIZE>{::Poco::Net::WebSocket{session, request, response}};
+    }
+
+    template<int SIZE>
+    inline Wrapper<SIZE> tls_wrapper(const std::string& host,
+                                     ::Poco::UInt16 port,
+                                     const std::string& uri) {
+      ::Poco::Net::initializeSSL();
+      ::Poco::Net::HTTPSClientSession session{host, port};
       ::Poco::Net::HTTPRequest request{::Poco::Net::HTTPRequest::HTTP_GET, uri, ::Poco::Net::HTTPMessage::HTTP_1_1};
       ::Poco::Net::HTTPResponse response;
 
