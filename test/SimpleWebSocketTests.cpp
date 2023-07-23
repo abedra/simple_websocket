@@ -1,6 +1,5 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
-#include <utility>
 #include "../simple_websocket.hpp"
 
 struct TestFrameHandler final : SimpleWebSocket::FrameHandler {

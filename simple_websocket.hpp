@@ -7,226 +7,307 @@
 #include <memory>
 
 namespace SimpleWebSocket {
-  template<class... As> struct match : As... { using As::operator()...; };
-  template<class... As> match(As...) -> match<As...>;
+    template<class... As>
+    struct visitor : As ... {
+        using As::operator()...;
+    };
+    template<class... As> visitor(As...) -> visitor<As...>;
 
-  struct PingFrame final {
-    explicit PingFrame(std::string value) : value_(std::move(value)) {}
+    struct Failure final {
+        explicit Failure(std::string value) : value_(std::move(value)) {}
 
-    bool operator==(const PingFrame &rhs) const {
-      return value_ == rhs.value_;
-    }
+        friend std::ostream &operator<<(std::ostream &os, const Failure &failure) {
+            os << failure.value_;
+            return os;
+        }
 
-    bool operator!=(const PingFrame &rhs) const {
-      return !(rhs == *this);
-    }
+        [[nodiscard]] const std::string &value() const {
+            return value_;
+        }
 
-    [[nodiscard]]
-    const std::string &value() const {
-      return value_;
-    }
+    private:
+        std::string value_;
+    };
 
-  private:
-    std::string value_;
-  };
 
-  struct PongFrame final {
-    explicit PongFrame(std::string value) : value_(std::move(value)) {}
+    struct PingFrame final {
+        explicit PingFrame(std::string value) : value_(std::move(value)) {}
 
-    bool operator==(const PongFrame &rhs) const {
-      return value_ == rhs.value_;
-    }
+        bool operator==(const PingFrame &rhs) const {
+            return value_ == rhs.value_;
+        }
 
-    bool operator!=(const PongFrame &rhs) const {
-      return !(rhs == *this);
-    }
+        bool operator!=(const PingFrame &rhs) const {
+            return !(rhs == *this);
+        }
 
-    [[nodiscard]]
-    const std::string &value() const {
-      return value_;
-    }
+        [[nodiscard]]
+        const std::string &value() const {
+            return value_;
+        }
 
-  private:
-    std::string value_;
-  };
+    private:
+        std::string value_;
+    };
 
-  struct TextFrame final {
-    explicit TextFrame(std::string value) : value_(std::move(value)) {}
+    struct PongFrame final {
+        explicit PongFrame(std::string value) : value_(std::move(value)) {}
 
-    bool operator==(const TextFrame &rhs) const {
-      return value_ == rhs.value_;
-    }
+        bool operator==(const PongFrame &rhs) const {
+            return value_ == rhs.value_;
+        }
 
-    bool operator!=(const TextFrame &rhs) const {
-      return !(rhs == *this);
-    }
+        bool operator!=(const PongFrame &rhs) const {
+            return !(rhs == *this);
+        }
 
-    [[nodiscard]]
-    const std::string &value() const {
-      return value_;
-    }
+        [[nodiscard]]
+        const std::string &value() const {
+            return value_;
+        }
 
-  private:
-    std::string value_;
-  };
+    private:
+        std::string value_;
+    };
 
-  struct BinaryFrame final {
-    explicit BinaryFrame(std::vector<char> value) : value_(std::move(value)) {}
+    struct TextFrame final {
+        explicit TextFrame(std::string value) : value_(std::move(value)) {}
 
-    bool operator==(const BinaryFrame &rhs) const {
-      return value_ == rhs.value_;
-    }
+        bool operator==(const TextFrame &rhs) const {
+            return value_ == rhs.value_;
+        }
 
-    bool operator!=(const BinaryFrame &rhs) const {
-      return !(rhs == *this);
-    }
+        bool operator!=(const TextFrame &rhs) const {
+            return !(rhs == *this);
+        }
 
-    [[nodiscard]]
-    const std::vector<char> &value() const {
-      return value_;
-    }
+        [[nodiscard]]
+        const std::string &value() const {
+            return value_;
+        }
 
-  private:
-    std::vector<char> value_;
-  };
+    private:
+        std::string value_;
+    };
 
-  struct CloseFrame final {
-    explicit CloseFrame(std::string value) : value_(std::move(value)) {}
+    struct BinaryFrame final {
+        explicit BinaryFrame(std::vector<char> value) : value_(std::move(value)) {}
 
-    bool operator==(const CloseFrame &rhs) const {
-      return value_ == rhs.value_;
-    }
+        bool operator==(const BinaryFrame &rhs) const {
+            return value_ == rhs.value_;
+        }
 
-    bool operator!=(const CloseFrame &rhs) const {
-      return !(rhs == *this);
-    }
+        bool operator!=(const BinaryFrame &rhs) const {
+            return !(rhs == *this);
+        }
 
-    [[nodiscard]]
-    const std::string &value() const {
-      return value_;
-    }
+        [[nodiscard]]
+        const std::vector<char> &value() const {
+            return value_;
+        }
 
-  private:
-    std::string value_;
-  };
+    private:
+        std::vector<char> value_;
+    };
 
-  struct UndefinedFrame final {
-    bool operator==(const UndefinedFrame &rhs) const {
-      return true;
-    }
+    struct CloseFrame final {
+        explicit CloseFrame(std::string value) : value_(std::move(value)) {}
 
-    bool operator!=(const UndefinedFrame &rhs) const {
-      return false;
-    }
-  };
+        bool operator==(const CloseFrame &rhs) const {
+            return value_ == rhs.value_;
+        }
 
-  struct FrameHandler {
-    virtual ~FrameHandler() = default;
-    virtual void handlePing(const PingFrame& pingFrame) = 0;
-    virtual void handlePong(const PongFrame& pongFrame) = 0;
-    virtual void handleText(const TextFrame& textFrame) = 0;
-    virtual void handleBinary(const BinaryFrame& binaryFrame) = 0;
-    virtual void handleClose(const CloseFrame& closeFrame) = 0;
-    virtual void handleUndefined(const UndefinedFrame& undefinedFrame) = 0;
-  };
+        bool operator!=(const CloseFrame &rhs) const {
+            return !(rhs == *this);
+        }
 
-  template<class A>
-  struct FrameParser {
-    virtual ~FrameParser() = default;
-    virtual A handlePing(const PingFrame& pingFrame) = 0;
-    virtual A handlePong(const PongFrame& pongFrame) = 0;
-    virtual A handleText(const TextFrame& textFrame) = 0;
-    virtual A handleBinary(const BinaryFrame& binaryFrame) = 0;
-    virtual A handleClose(const CloseFrame& closeFrame) = 0;
-    virtual A handleUndefined(const UndefinedFrame& undefinedFrame) = 0;
-  };
+        [[nodiscard]]
+        const std::string &value() const {
+            return value_;
+        }
 
-  struct Message final {
-    explicit Message(std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> value)
-      : value_(std::move(value))
-    { }
+    private:
+        std::string value_;
+    };
 
-    bool operator==(const Message &rhs) const {
-      if (std::holds_alternative<PingFrame>(value_) && std::holds_alternative<PingFrame>(rhs.value())) {
-        return std::get<PingFrame>(value_) == std::get<PingFrame>(rhs.value());
-      }
+    struct UndefinedFrame final {
+        bool operator==(const UndefinedFrame &_) const {
+            return true;
+        }
 
-      if (std::holds_alternative<PongFrame>(value_) && std::holds_alternative<PongFrame>(rhs.value())) {
-        return std::get<PongFrame>(value_) == std::get<PongFrame>(rhs.value());
-      }
+        bool operator!=(const UndefinedFrame &_) const {
+            return false;
+        }
+    };
 
-      if (std::holds_alternative<TextFrame>(value_) && std::holds_alternative<TextFrame>(rhs.value())) {
-        return std::get<TextFrame>(value_) == std::get<TextFrame>(rhs.value());
-      }
+    struct FrameHandler {
+        virtual ~FrameHandler() = default;
 
-      if (std::holds_alternative<BinaryFrame>(value_) && std::holds_alternative<BinaryFrame>(rhs.value())) {
-        return std::get<BinaryFrame>(value_) == std::get<BinaryFrame>(rhs.value());
-      }
+        virtual void handlePing(const PingFrame &pingFrame) = 0;
 
-      if (std::holds_alternative<CloseFrame>(value_) && std::holds_alternative<CloseFrame>(rhs.value())) {
-        return std::get<CloseFrame>(value_) == std::get<CloseFrame>(rhs.value());
-      }
+        virtual void handlePong(const PongFrame &pongFrame) = 0;
 
-      if (std::holds_alternative<UndefinedFrame>(value_) && std::holds_alternative<UndefinedFrame>(rhs.value())) {
-        return std::get<UndefinedFrame>(value_) == std::get<UndefinedFrame>(rhs.value());
-      }
+        virtual void handleText(const TextFrame &textFrame) = 0;
 
-      return false;
-    }
+        virtual void handleBinary(const BinaryFrame &binaryFrame) = 0;
 
-    bool operator!=(const Message &rhs) const {
-      return !(rhs == *this);
-    }
+        virtual void handleClose(const CloseFrame &closeFrame) = 0;
 
-    [[nodiscard]]
-    const std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> &value() const {
-      return value_;
-    }
+        virtual void handleUndefined(const UndefinedFrame &undefinedFrame) = 0;
+    };
 
-  private:
-    std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> value_;
-  };
+    template<class A>
+    struct FrameParser {
+        virtual ~FrameParser() = default;
 
-  struct MessageHandler final {
-    explicit MessageHandler(std::unique_ptr<FrameHandler> delegate) : delegate_(std::move(delegate)) {}
+        virtual A handlePing(const PingFrame &pingFrame) = 0;
 
-    virtual ~MessageHandler() = default;
+        virtual A handlePong(const PongFrame &pongFrame) = 0;
 
-    void handle(const Message& message) {
-      std::visit(match{
-        [this](const PingFrame& pingFrame) { delegate_->handlePing(pingFrame); },
-        [this](const PongFrame& pongFrame) { delegate_->handlePong(pongFrame); },
-        [this](const TextFrame& textFrame) { delegate_->handleText(textFrame); },
-        [this](const BinaryFrame& binaryFrame) { delegate_->handleBinary(binaryFrame); },
-        [this](const CloseFrame& closeFrame) { delegate_->handleClose(closeFrame); },
-        [this](const UndefinedFrame& undefinedFrame) { delegate_->handleUndefined(undefinedFrame); },
-      }, message.value());
-    }
+        virtual A handleText(const TextFrame &textFrame) = 0;
 
-  private:
-    std::unique_ptr<FrameHandler> delegate_;
-  };
+        virtual A handleBinary(const BinaryFrame &binaryFrame) = 0;
 
-  template<class A>
-  struct MessageParser final {
-    explicit MessageParser(std::unique_ptr<FrameParser<A>> delegate) : delegate_(std::move(delegate)) {}
+        virtual A handleClose(const CloseFrame &closeFrame) = 0;
 
-    virtual ~MessageParser() = default;
+        virtual A handleUndefined(const UndefinedFrame &undefinedFrame) = 0;
+    };
 
-    A parse(const Message& message) {
-      return std::visit(match{
-          [this](const PingFrame& pingFrame) { return delegate_->handlePing(pingFrame); },
-          [this](const PongFrame& pongFrame) { return delegate_->handlePong(pongFrame); },
-          [this](const TextFrame& textFrame) { return delegate_->handleText(textFrame); },
-          [this](const BinaryFrame& binaryFrame) { return delegate_->handleBinary(binaryFrame); },
-          [this](const CloseFrame& closeFrame) { return delegate_->handleClose(closeFrame); },
-          [this](const UndefinedFrame& undefinedFrame) { return delegate_->handleUndefined(undefinedFrame); },
-      }, message.value());
-    }
+    struct Message final {
+        explicit Message(std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> value)
+                : value_(std::move(value)) {}
 
-  private:
-    std::unique_ptr<FrameParser<A>> delegate_;
-  };
+        bool operator==(const Message &rhs) const {
+            if (std::holds_alternative<PingFrame>(value_) && std::holds_alternative<PingFrame>(rhs.value())) {
+                return std::get<PingFrame>(value_) == std::get<PingFrame>(rhs.value());
+            }
+
+            if (std::holds_alternative<PongFrame>(value_) && std::holds_alternative<PongFrame>(rhs.value())) {
+                return std::get<PongFrame>(value_) == std::get<PongFrame>(rhs.value());
+            }
+
+            if (std::holds_alternative<TextFrame>(value_) && std::holds_alternative<TextFrame>(rhs.value())) {
+                return std::get<TextFrame>(value_) == std::get<TextFrame>(rhs.value());
+            }
+
+            if (std::holds_alternative<BinaryFrame>(value_) && std::holds_alternative<BinaryFrame>(rhs.value())) {
+                return std::get<BinaryFrame>(value_) == std::get<BinaryFrame>(rhs.value());
+            }
+
+            if (std::holds_alternative<CloseFrame>(value_) && std::holds_alternative<CloseFrame>(rhs.value())) {
+                return std::get<CloseFrame>(value_) == std::get<CloseFrame>(rhs.value());
+            }
+
+            if (std::holds_alternative<UndefinedFrame>(value_) && std::holds_alternative<UndefinedFrame>(rhs.value())) {
+                return std::get<UndefinedFrame>(value_) == std::get<UndefinedFrame>(rhs.value());
+            }
+
+            return false;
+        }
+
+        bool operator!=(const Message &rhs) const {
+            return !(rhs == *this);
+        }
+
+        [[nodiscard]]
+        const std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> &value() const {
+            return value_;
+        }
+
+    private:
+        std::variant<PingFrame, PongFrame, TextFrame, BinaryFrame, CloseFrame, UndefinedFrame> value_;
+    };
+
+    struct MessageHandler final {
+        explicit MessageHandler(std::unique_ptr<FrameHandler> delegate) : delegate_(std::move(delegate)) {}
+
+        virtual ~MessageHandler() = default;
+
+        void handle(const Message &message) {
+            std::visit(visitor{
+                    [this](const PingFrame &pingFrame) { delegate_->handlePing(pingFrame); },
+                    [this](const PongFrame &pongFrame) { delegate_->handlePong(pongFrame); },
+                    [this](const TextFrame &textFrame) { delegate_->handleText(textFrame); },
+                    [this](const BinaryFrame &binaryFrame) { delegate_->handleBinary(binaryFrame); },
+                    [this](const CloseFrame &closeFrame) { delegate_->handleClose(closeFrame); },
+                    [this](const UndefinedFrame &undefinedFrame) { delegate_->handleUndefined(undefinedFrame); },
+            }, message.value());
+        }
+
+    private:
+        std::unique_ptr<FrameHandler> delegate_;
+    };
+
+    template<class A>
+    struct MessageParser final {
+        explicit MessageParser(std::unique_ptr<FrameParser<A>> delegate) : delegate_(std::move(delegate)) {}
+
+        virtual ~MessageParser() = default;
+
+        A parse(const Message &message) {
+            return std::visit(visitor{
+                    [this](const PingFrame &pingFrame) { return delegate_->handlePing(pingFrame); },
+                    [this](const PongFrame &pongFrame) { return delegate_->handlePong(pongFrame); },
+                    [this](const TextFrame &textFrame) { return delegate_->handleText(textFrame); },
+                    [this](const BinaryFrame &binaryFrame) { return delegate_->handleBinary(binaryFrame); },
+                    [this](const CloseFrame &closeFrame) { return delegate_->handleClose(closeFrame); },
+                    [this](const UndefinedFrame &undefinedFrame) { return delegate_->handleUndefined(undefinedFrame); },
+            }, message.value());
+        }
+
+    private:
+        std::unique_ptr<FrameParser<A>> delegate_;
+    };
+
+    struct WorkflowResult final {
+        explicit WorkflowResult(const std::monostate &unit) : value_(unit) {}
+
+        explicit WorkflowResult(const Failure &f) : value_(f) {}
+
+        explicit WorkflowResult(std::variant<Failure, std::monostate> value) : value_(std::move(value)) {}
+
+        [[nodiscard]] const std::variant<Failure, std::monostate> &value() const {
+            return value_;
+        }
+
+        [[nodiscard]] bool complete() const {
+            return std::holds_alternative<std::monostate>(value_);
+        }
+
+        template<class R>
+        [[nodiscard]] R
+        match(const std::function<R(const Failure &a)> aFn, const std::function<R(const std::monostate &unit)> uFn) {
+            return std::visit(visitor{
+                    [&aFn](const Failure &a) { return aFn(a); },
+                    [&uFn](const std::monostate &u) { return uFn(u); }
+            }, value_);
+        }
+
+    private:
+        std::variant<Failure, std::monostate> value_;
+    };
+
+    struct ExecutionContext final {
+        ExecutionContext(std::string host, uint16_t port, std::string uri)
+                : host_(std::move(host)), port_(port), uri_(std::move(uri)) {}
+
+        [[nodiscard]] const std::string &host() const {
+            return host_;
+        }
+
+        [[nodiscard]] uint16_t port() const {
+            return port_;
+        }
+
+        [[nodiscard]] const std::string &uri() const {
+            return uri_;
+        }
+
+    private:
+        std::string host_;
+        uint16_t port_;
+        std::string uri_;
+    };
 }
 
 #if __has_include(<Poco/Net/WebSocket.h>)
@@ -303,9 +384,9 @@ namespace SimpleWebSocket::Poco {
       return Wrapper<SIZE>{::Poco::Net::WebSocket{session, request, response}};
     }
 
-    #if __has_include(<Poco/Net/SSLManager.h>)
-    #include <Poco/Net/SSLManager.h>
-    #include <Poco/Net/HTTPSClientSession.h>
+#if __has_include(<Poco/Net/SSLManager.h>)
+#include <Poco/Net/SSLManager.h>
+#include <Poco/Net/HTTPSClientSession.h>
 
     template<int SIZE>
     inline Wrapper<SIZE> tls_wrapper(const std::string& host,
@@ -318,6 +399,6 @@ namespace SimpleWebSocket::Poco {
 
       return Wrapper<SIZE>{::Poco::Net::WebSocket{session, request, response}};
     }
-    #endif
+#endif
 }
 #endif
