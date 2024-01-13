@@ -2,7 +2,7 @@ FetchContent_Declare(
         simple_websocket
         GIT_SHALLOW TRUE
         GIT_REPOSITORY https://github.com/abedra/simple_websocket
-        GIT_TAG v0.0.6
+        GIT_TAG v0.0.10
         CONFIGURE_COMMAND ""
         BUILD_COMMAND "")
 FetchContent_GetProperties(simple_websocket)

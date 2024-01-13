@@ -3,8 +3,8 @@
 #include <sysexits.h>
 #include <chrono>
 #include <thread>
+#include <atomic>
 
-#include "Types.h"
 #include "WebSocketClient.h"
 
 std::atomic<bool> continueRunning = true;
@@ -25,19 +25,19 @@ int main() {
 
   constexpr int FRAME_SIZE = 1024;
 
-  WebSocketClient<FRAME_SIZE, WorkflowResult> webSocketClient{
-    ExecutionContext{"localhost", 8080, "/"},
-    [](const auto& result) { return WorkflowResult{result}; }
+  WebSocketClient<FRAME_SIZE> webSocketClient{
+    SimpleWebSocket::ExecutionContext{"localhost", 8080, "/"},
+    [](const auto& result) { return SimpleWebSocket::WorkflowResult{result}; }
   };
 
-  Workflow workflow{
+  SimpleWebSocket::Workflow workflow{
     [&, client = std::move(webSocketClient)]() {
       return client.start(continueRunning);
     },
     [](const auto&) {
       std::cout << "Workflow completed successfully" << std::endl;
     },
-    [](const Failure &failure) {
+    [](const SimpleWebSocket::Failure &failure) {
       std::cout << failure << std::endl;
       std::this_thread::sleep_for(1s);
     }
