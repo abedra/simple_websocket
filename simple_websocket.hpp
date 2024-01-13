@@ -5,6 +5,7 @@
 #include <vector>
 #include <variant>
 #include <memory>
+#include <functional>
 
 namespace SimpleWebSocket {
     template<class... As>
@@ -287,6 +288,32 @@ namespace SimpleWebSocket {
         std::variant<Failure, std::monostate> value_;
     };
 
+    struct Workflow final {
+        explicit Workflow(std::function<WorkflowResult()> runFn,
+                          std::function<void(const std::monostate &)> successFn,
+                          std::function<void(const Failure &)> recoveryFn)
+                : runFn_(std::move(runFn))
+                , successFn_(std::move(successFn))
+                , recoveryFn_(std::move(recoveryFn))
+        { }
+
+        void runUntilCancelled() {
+            WorkflowResult workflowResult = runFn_();
+            workflowResult.template match<void>(recoveryFn_, successFn_);
+
+            while (!workflowResult.complete()) {
+                workflowResult = runFn_();
+                workflowResult.template match<void>(recoveryFn_, successFn_);
+            }
+        }
+
+    private:
+        const std::function<WorkflowResult()> runFn_;
+        const std::function<void(const std::monostate &)> successFn_;
+        const std::function<void(const Failure &)> recoveryFn_;
+    };
+
+
     struct ExecutionContext final {
         ExecutionContext(std::string host, uint16_t port, std::string uri)
                 : host_(std::move(host)), port_(port), uri_(std::move(uri)) {}
@@ -316,7 +343,8 @@ namespace SimpleWebSocket {
 #include <Poco/Net/HTTPClientSession.h>
 #include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPResponse.h>
-#include <Poco/Net/WebSocket.h>
+#include <Poco/Net/NetSSL.h>
+#include <Poco/Net/HTTPSClientSession.h>
 
 namespace SimpleWebSocket::Poco {
     constexpr int PING_FRAME   = static_cast<int>(::Poco::Net::WebSocket::FRAME_FLAG_FIN) |
@@ -384,10 +412,6 @@ namespace SimpleWebSocket::Poco {
       return Wrapper<SIZE>{::Poco::Net::WebSocket{session, request, response}};
     }
 
-#if __has_include(<Poco/Net/SSLManager.h>)
-#include <Poco/Net/SSLManager.h>
-#include <Poco/Net/HTTPSClientSession.h>
-
     template<int SIZE>
     inline Wrapper<SIZE> tls_wrapper(const std::string& host,
                                      ::Poco::UInt16 port,
@@ -399,6 +423,5 @@ namespace SimpleWebSocket::Poco {
 
       return Wrapper<SIZE>{::Poco::Net::WebSocket{session, request, response}};
     }
-#endif
 }
 #endif
